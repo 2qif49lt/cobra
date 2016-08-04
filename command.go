@@ -24,7 +24,7 @@ import (
 	"sort"
 	"strings"
 
-	flag "github.com/spf13/pflag"
+	flag "github.com/2qif49lt/pflag"
 )
 
 // Command is just that, a command for your application.
