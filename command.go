@@ -51,6 +51,8 @@ type Command struct {
 	// List of aliases for ValidArgs. These are not suggested to the user in the bash
 	// completion, but accepted if entered manually.
 	ArgAliases []string
+	// 参数个数检查
+	Args PositionalArgs
 	// Custom functions used by the bash autocompletion generator
 	BashCompletionFunction string
 	// Is this command deprecated and should print this string when used?
@@ -574,6 +576,10 @@ func (c *Command) execute(a []string) (err error) {
 	argWoFlags := c.Flags().Args()
 	if c.DisableFlagParsing {
 		argWoFlags = a
+	}
+
+	if err := c.ValidateArgs(argWoFlags); err != nil {
+		return err
 	}
 
 	for p := c; p != nil; p = p.Parent() {

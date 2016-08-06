@@ -4,6 +4,13 @@ import (
 	"fmt"
 )
 
+func (c *Command) ValidateArgs(args []string) error {
+	if c.Args == nil {
+		return nil
+	}
+	return c.Args(c, args)
+}
+
 func (c *Command) findSuggestions(arg string) string {
 	if c.DisableSuggestions {
 		return ""
