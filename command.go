@@ -65,6 +65,8 @@ type Command struct {
 	pflags *flag.FlagSet
 	// Flags that are declared specifically by this command (not inherited).
 	lflags *flag.FlagSet
+	// dflags 不需要的flags.以便继承时可以微调自己的参数.
+	dflags []string
 	// SilenceErrors is an option to quiet errors down stream
 	SilenceErrors bool
 	// Silence Usage is an option to silence usage when an error occurs.
@@ -1077,7 +1079,7 @@ func (c *Command) LocalFlags() *flag.FlagSet {
 	})
 	if !c.HasParent() {
 		flag.CommandLine.VisitAll(func(f *flag.Flag) {
-			if local.Lookup(f.Name) == nil {
+			if local.Lookup(f.Name) == nil && c.checkDrop(f.Name) == false {
 				local.AddFlag(f)
 			}
 		})
@@ -1097,7 +1099,7 @@ func (c *Command) InheritedFlags() *flag.FlagSet {
 	rmerge = func(x *Command) {
 		if x.HasPersistentFlags() {
 			x.PersistentFlags().VisitAll(func(f *flag.Flag) {
-				if inherited.Lookup(f.Name) == nil && local.Lookup(f.Name) == nil {
+				if inherited.Lookup(f.Name) == nil && local.Lookup(f.Name) == nil && c.checkDrop(f.Name) == false {
 					inherited.AddFlag(f)
 				}
 			})
@@ -1139,6 +1141,7 @@ func (c *Command) ResetFlags() {
 	c.flags.SetOutput(c.flagErrorBuf)
 	c.pflags = flag.NewFlagSet(c.Name(), flag.ContinueOnError)
 	c.pflags.SetOutput(c.flagErrorBuf)
+	c.dflags = []string{}
 }
 
 // Does the command contain any flags (local plus persistent from the entire structure)
@@ -1222,6 +1225,38 @@ func (c *Command) Parent() *Command {
 	return c.parent
 }
 
+func (c *Command) checkDrop(name string) bool {
+	for _, v := range c.dflags {
+		if v == name {
+			return true
+		}
+	}
+	if c.HasParent() {
+		return c.parent.checkDrop(name)
+	}
+	return false
+}
+
+// AddDrop 增加一个不想在该command出现的flag
+func (c *Command) AddDrop(name string) {
+	for _, v := range c.dflags {
+		if v == name {
+			return
+		}
+	}
+	c.dflags = append(c.dflags, name)
+}
+
+// DelDrop
+func (c *Command) DelDrop(name string) {
+	for k, v := range c.dflags {
+		if v == name {
+			c.dflags = append(c.dflags[:k], c.dflags[k:]...)
+			return
+		}
+	}
+}
+
 func (c *Command) mergePersistentFlags() {
 	var rmerge func(x *Command)
 
@@ -1241,14 +1276,14 @@ func (c *Command) mergePersistentFlags() {
 	rmerge = func(x *Command) {
 		if !x.HasParent() {
 			flag.CommandLine.VisitAll(func(f *flag.Flag) {
-				if x.PersistentFlags().Lookup(f.Name) == nil {
+				if x.PersistentFlags().Lookup(f.Name) == nil && c.checkDrop(f.Name) == false {
 					x.PersistentFlags().AddFlag(f)
 				}
 			})
 		}
 		if x.HasPersistentFlags() {
 			x.PersistentFlags().VisitAll(func(f *flag.Flag) {
-				if c.Flags().Lookup(f.Name) == nil {
+				if c.Flags().Lookup(f.Name) == nil && c.checkDrop(f.Name) == false {
 					c.Flags().AddFlag(f)
 				}
 			})
